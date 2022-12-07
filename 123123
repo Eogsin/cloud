@@ -7,6 +7,20 @@ package aws;
 * using AWS Java SDK Library
 * 
 */
+
+import com.amazonaws.services.ec2.AmazonEC2;
+import com.amazonaws.services.ec2.AmazonEC2ClientBuilder;
+import com.amazonaws.services.ec2.model.CreateSecurityGroupRequest;
+import com.amazonaws.services.ec2.model.CreateSecurityGroupResult;
+import com.amazonaws.services.ec2.model.AuthorizeSecurityGroupIngressRequest;
+import com.amazonaws.services.ec2.model.AuthorizeSecurityGroupIngressResult;
+import com.amazonaws.services.ec2.model.IpPermission;
+import com.amazonaws.services.ec2.model.IpRange;
+import com.amazonaws.services.ec2.AmazonEC2;
+import com.amazonaws.services.ec2.AmazonEC2ClientBuilder;
+import com.amazonaws.services.ec2.model.MonitorInstancesRequest;
+import com.amazonaws.services.ec2.model.UnmonitorInstancesRequest;
+import com.amazonaws.services.ec2.model.DryRunResult;
 import java.util.Iterator;
 import java.util.Scanner;
 import com.amazonaws.AmazonClientException;
@@ -35,6 +49,19 @@ import com.amazonaws.services.ec2.model.DescribeImagesResult;
 import com.amazonaws.services.ec2.model.Image;
 import com.amazonaws.services.ec2.model.Filter;
 import com.amazonaws.services.ec2.model.CpuOptionsRequest;
+import com.amazonaws.services.ec2.model.CreateSecurityGroupRequest;
+import com.amazonaws.services.ec2.model.CreateSecurityGroupResult;
+import com.amazonaws.services.ec2.model.AuthorizeSecurityGroupIngressRequest;
+import com.amazonaws.services.ec2.model.AuthorizeSecurityGroupIngressResult;
+import com.amazonaws.services.ec2.model.IpPermission;
+import com.amazonaws.services.ec2.model.IpRange;
+import com.amazonaws.services.ec2.AmazonEC2;
+import com.amazonaws.services.ec2.AmazonEC2ClientBuilder;
+import com.amazonaws.services.ec2.model.CreateKeyPairRequest;
+import com.amazonaws.services.ec2.model.CreateKeyPairResult;
+import com.amazonaws.services.ec2.model.DeleteKeyPairRequest;
+import com.amazonaws.services.ec2.model.DeleteKeyPairResult;
+
 
 public class awsTest {
 
@@ -77,7 +104,8 @@ public class awsTest {
 			System.out.println("  3. start instance               4. available regions      ");
 			System.out.println("  5. stop instance                6. create instance        ");
 			System.out.println("  7. reboot instance              8. list images            ");
-			System.out.println("  9. CpuOption                    10. condor_status         ");
+			System.out.println("  9. CreateKeyPair                10. condor_status         ");
+			System.out.println("  11. secu                        12. deleteKeyPair         ");
 			System.out.println("  99. quit                                                  ");
 			System.out.println("------------------------------------------------------------");
 			
@@ -147,9 +175,17 @@ public class awsTest {
 				listImages();
 				break;
 			case 9:
-				CpuOptionsRequest();
+				Key();
 				break;
-				
+			case 10 : 
+				condor_status();
+				break;
+			case 11 : 
+				secu();
+				break;
+		 	case 12 : 
+		 		DKey();
+		 		break;
 				
 			case 99: 
 				System.out.println("bye!");
@@ -163,8 +199,37 @@ public class awsTest {
 		
 	}
 
-	public static void listInstances() {
+	public static void condor_status() {
 		
+		System.out.println("Listing instances....");
+		boolean done = false;
+		int n=0;
+		DescribeInstancesRequest request = new DescribeInstancesRequest();
+		System.out.printf("name \t\t\t Opsys \t Arch \t state \t Activity \t LoadAv M\n");
+		
+		while(!done) {
+			DescribeInstancesResult response = ec2.describeInstances(request);
+
+			for(Reservation reservation : response.getReservations()) {
+					n+=1;
+				for(Instance instance : reservation.getInstances()) {
+					System.out.printf("%s \t LINUX \t X86_64 Unclaimed  Bencharking  0.000 \n"  ,instance.getInstanceId());
+				}
+				
+			}
+			
+			System.out.printf("\t\t Machines    owner   Claimed\tUnclaimed Matched  Preemptting  Drain\n");
+			System.out.printf(" X86_64/LINUX\t\t"+ n +  " \t0\t  0\t\t" + n + "\t0\t0\t   0\n" );
+			System.out.printf("\ttotal\t\t"+ n + "\t0\t  0\t\t" + n + "\t0 \t0\t   0" );
+			request.setNextToken(response.getNextToken());
+
+			if(response.getNextToken() == null) {
+				done = true;
+			}
+		}
+	}
+	
+	public static void listInstances(){
 		System.out.println("Listing instances....");
 		boolean done = false;
 		
@@ -197,7 +262,7 @@ public class awsTest {
 			}
 		}
 	}
-	
+	 	
 	public static void availableZones()	{
 
 		System.out.println("Available zones....");
@@ -337,7 +402,7 @@ public class awsTest {
 		DescribeImagesRequest request = new DescribeImagesRequest();
 		ProfileCredentialsProvider credentialsProvider = new ProfileCredentialsProvider();
 		
-		request.getFilters().add(new Filter().withName("name").withValues("htcondor-slave-image"));
+		request.getFilters().add(new Filter().withName("name").withValues("slave123"));
 		request.setRequestCredentialsProvider(credentialsProvider);
 		
 		DescribeImagesResult results = ec2.describeImages(request);
@@ -348,17 +413,102 @@ public class awsTest {
 		}
 		
 	}
-	public static void CpuOptionsRequest(){
-		
-		System.out.println("condor_status....");
-		CpuOptionsRequest cpu = new CpuOptionsRequest();
-		
-		final AmazonEC2 ec2 = AmazonEC2ClientBuilder.defaultClient();
-	        cpu.setCoreCount(1);
-		System.out.printf("getCoreCount %s",cpu.getThreadsPerCore());
-	
-	}
 	
 	
+	public static void secu()
+    {
+        Scanner scanner = new Scanner(System.in);
+        System.out.print("key name ;");
+        String S = scanner.next();
+      
+        Scanner scanner1 = new Scanner(System.in);
+        System.out.print("Description ;");
+        String A = scanner.next();
+        
+        String group_name = S;
+        String group_desc = A;
+        String vpc_id = "vpc-08392fad752263063";
+
+        final AmazonEC2 ec2 = AmazonEC2ClientBuilder.defaultClient();
+
+        CreateSecurityGroupRequest create_request = new
+            CreateSecurityGroupRequest()
+                .withGroupName(group_name)
+                .withDescription(group_desc)
+                .withVpcId(vpc_id);
+
+        CreateSecurityGroupResult create_response =
+            ec2.createSecurityGroup(create_request);
+
+        System.out.printf(
+            "Successfully created security group named %s",
+            group_name);
+
+        IpRange ip_range = new IpRange()
+            .withCidrIp("0.0.0.0/0");
+
+        IpPermission ip_perm = new IpPermission()
+            .withIpProtocol("tcp")
+            .withToPort(80)
+            .withFromPort(80)
+            .withIpv4Ranges(ip_range);
+
+        IpPermission ip_perm2 = new IpPermission()
+            .withIpProtocol("tcp")
+            .withToPort(22)
+            .withFromPort(22)
+            .withIpv4Ranges(ip_range);
+
+        AuthorizeSecurityGroupIngressRequest auth_request = new
+            AuthorizeSecurityGroupIngressRequest()
+                .withGroupName(group_name)
+                .withIpPermissions(ip_perm, ip_perm2);
+
+        AuthorizeSecurityGroupIngressResult auth_response =
+            ec2.authorizeSecurityGroupIngress(auth_request);
+
+        System.out.printf(
+            "Successfully added ingress policy to security group %s",
+            group_name);
+    }
+    
+     public static void Key()
+    {
+       Scanner scanner = new Scanner(System.in);
+        System.out.print("key name ;");
+        String S = scanner.next();
+
+        String key_name = S;
+
+        final AmazonEC2 ec2 = AmazonEC2ClientBuilder.defaultClient();
+
+        CreateKeyPairRequest request = new CreateKeyPairRequest()
+            .withKeyName(key_name);
+
+        CreateKeyPairResult response = ec2.createKeyPair(request);
+
+        System.out.printf(
+            "Successfully created key pair named %s",
+            key_name);
+    }
+    
+      public static void DKey()
+    {
+        Scanner scanner2 = new Scanner(System.in);
+        System.out.print("rm key name ;");
+        String SS = scanner2.next();
+
+        String key_name = SS;
+
+        final AmazonEC2 ec2 = AmazonEC2ClientBuilder.defaultClient();
+
+        DeleteKeyPairRequest request = new DeleteKeyPairRequest()
+            .withKeyName(key_name);
+
+        DeleteKeyPairResult response = ec2.deleteKeyPair(request);
+
+        System.out.printf(
+            "Successfully deleted key pair named %s", key_name);
+    }
 }
 	
